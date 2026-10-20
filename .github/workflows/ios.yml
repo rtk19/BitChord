@@ -12,6 +12,11 @@ on:
         type: choice
         options: [simulator, unsigned, ad-hoc, app-store-connect]
         default: simulator
+      runner:
+        description: macOS runner (use latest if the macos-15 pool is busy)
+        type: choice
+        options: [macos-15, macos-latest]
+        default: macos-15
 
 permissions:
   contents: read
@@ -22,7 +27,7 @@ concurrency:
 
 jobs:
   build:
-    runs-on: macos-15
+    runs-on: ${{ inputs.runner || 'macos-15' }}
     timeout-minutes: 30
     env:
       IOS_BUNDLE_ID: ${{ vars.IOS_BUNDLE_ID || 'io.github.rtk19.BitChord' }}
