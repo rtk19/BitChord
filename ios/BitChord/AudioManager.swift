@@ -69,7 +69,9 @@ final class AudioManager {
             guard let address = params["url"] as? String, let url = URL(string: address), url.scheme == "https",
                   let host = url.host, host.hasSuffix(".googlevideo.com") else { reply(nil, "Invalid media URL"); return }
             do {
-                try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [.allowAirPlay])
+                // Playback already supports AirPlay; allowAirPlay is an option
+                // for playAndRecord and can make playback activation fail.
+                try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
                 try AVAudioSession.sharedInstance().setActive(true)
             } catch { reply(nil, error.localizedDescription); return }
             let autoplay = params["autoplay"] as? Bool ?? true
