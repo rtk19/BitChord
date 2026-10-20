@@ -52,4 +52,38 @@ final class LaunchTests: XCTestCase {
         XCTAssertFalse(app.webViews.firstMatch.exists, "WebKit must not expose a web UI")
         capture("Native-Live-Launch")
     }
+
+    func testLiveCatalogueAndLongPlayback() throws {
+        // Real network/AVPlayer probe, separate from the deterministic UI test.
+        // A blocked catalogue is recorded as skipped, never counted as playback proof.
+        let app = XCUIApplication(); app.launch()
+        app.tabBars.buttons["Search"].tap()
+        let search = app.searchFields.firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        search.tap(); search.typeText("Daft Punk Get Lucky")
+        let track = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "track-")).firstMatch
+        guard track.waitForExistence(timeout: 60) else {
+            capture("Live-Catalogue-Unavailable")
+            let tree = XCTAttachment(string: app.debugDescription); tree.lifetime = .keepAlways; add(tree)
+            throw XCTSkip("The external catalogue was unavailable on this runner; physical-device streaming remains unverified.")
+        }
+        capture("Live-Search-Results")
+        track.tap(); app.buttons["Open Now Playing"].tap()
+        XCTAssertTrue(app.buttons["Pause"].waitForExistence(timeout: 70), "A real AAC stream must become ready in AVPlayer")
+        let elapsed = app.staticTexts["elapsed-time"]
+        let advanced = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            let parts = elapsed.label.split(separator: ":").compactMap { Int($0) }
+            return parts.count == 2 && parts[0] * 60 + parts[1] >= 95
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [advanced], timeout: 110), .completed, "Playback must advance beyond the common 70-second stream cutoff")
+        capture("Live-Playback-95-Seconds")
+    }
+
+    func testDarkAppearance() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--fixture", "-bitchord.appearance", "dark"]
+        app.launch()
+        XCTAssertTrue(app.staticTexts["Made for your day"].waitForExistence(timeout: 10))
+        capture("Native-Home-Dark")
+    }
 }

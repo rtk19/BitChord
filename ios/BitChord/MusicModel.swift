@@ -16,6 +16,7 @@ final class MusicModel: ObservableObject {
     @Published var repeatMode = 0 // off, queue, song
     @Published var shuffle = false
     private var activeDeck = 0
+    private var orderedQueue: [MusicItem] = []
     private var prepared: (id: String, deck: Int)?
     private var generation = 0
     private var loadTask: Task<Void, Never>?
@@ -58,11 +59,14 @@ final class MusicModel: ObservableObject {
     func play(_ items: [MusicItem], at item: MusicItem) {
         let playable = items.filter(\.playable)
         guard let position = playable.firstIndex(where: { $0.id == item.id }) else { return }
-        queue = playable; index = position; selectCurrent()
+        orderedQueue = playable
+        if shuffle { queue = [item] + playable.filter { $0.id != item.id }.shuffled(); index = 0 }
+        else { queue = playable; index = position }
+        selectCurrent()
     }
     func addToQueue(_ item: MusicItem) {
         if current == nil { play([item], at: item) }
-        else { queue.append(item); if index == queue.count - 2 { prefetchNext() } }
+        else { queue.append(item); orderedQueue.append(item); if index == queue.count - 2 { prefetchNext() } }
     }
     func select(_ queueIndex: Int) {
         guard queue.indices.contains(queueIndex) else { return }
@@ -155,6 +159,7 @@ final class MusicModel: ObservableObject {
     func toggleShuffle() {
         shuffle.toggle()
         if shuffle, index + 1 < queue.count { queue.replaceSubrange((index + 1)..., with: queue[(index + 1)...].shuffled()) }
+        if !shuffle, let id = current?.id { queue = orderedQueue; index = queue.firstIndex { $0.id == id } ?? 0 }
         preloadTask?.cancel(); prepared = nil; prefetchNext()
     }
     func toggleRepeat() { repeatMode = (repeatMode + 1) % 3; preloadTask?.cancel(); prepared = nil; prefetchNext() }

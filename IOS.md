@@ -1,10 +1,12 @@
 # BitChord for iOS
 
-This is an initial iOS port, not yet a feature-complete Android replacement.
-It bundles the existing `web/app` screens, data parsing, queue and lyrics in
-WKWebView. Native URLSession replaces the browser extension's HTTP transport;
-AVPlayer handles audio, interruptions, AirPlay and lock-screen play/pause/seek.
-The application does not load its UI from a hosted website.
+This preview renders its screens in SwiftUI: native tab navigation, search,
+catalogue pages, a mini-player, Now Playing, queue, settings and a local library.
+It shares upstream's YouTube catalogue parsers and stream resolver in a hidden,
+bundled WKWebView runtime. Native URLSession supplies HTTP transport and AVPlayer
+handles audio, interruptions, AirPlay and lock-screen controls. The application
+does not load its UI from a hosted website. It is not yet a feature-complete
+Android replacement.
 
 The first acceptance gate is a successful simulator build and a device playback
 test. A signed IPA additionally requires the Apple setup below. An unsigned
@@ -14,23 +16,32 @@ archive or simulator `.app` cannot be installed on an iPhone as an IPA.
 
 | Capability | Initial implementation / remaining validation |
 | --- | --- |
-| Existing Web appearance and screens | Reused directly, with native safe-area layout |
-| Exact Android appearance | Not implemented; Android and Web have separate UIs upstream |
+| iOS interface | SwiftUI, native tabs/search/navigation, system typography, adaptive light/dark theme |
+| Exact Android appearance | Adapted to iOS; this is not a pixel-identical Android UI |
 | Anonymous home, search, albums, artists, playlists | Shared upstream code, native HTTP; live device verification required |
 | YouTube audio | Direct AAC streams through AVPlayer; device playback and long-track validation required |
 | Background audio for the current track | Native audio session configured; device lock/interruption validation required |
-| Queue, shuffle, repeat, crossfade | Shared foreground logic; transitions while WebKit is suspended are not implemented |
-| Lock-screen play/pause/seek and AirPlay | Native implementation; device verification required |
-| Lock-screen next/previous | Disabled until the queue moves into the native host |
-| Lyrics, artwork, HTTPS addon requests | Shared implementation with native HTTP; provider/device verification required |
+| Queue, shuffle, repeat | Native queue; next song preloaded into a second AVPlayer. Continuous locked playback beyond the preloaded song needs physical-device validation because iOS can suspend the resolver |
+| Lock-screen play/pause/seek/next/previous and AirPlay | Native implementation; device verification required |
+| Favorites and recently played | Persisted locally; no account sync |
+| Artwork | Native AsyncImage and lock-screen artwork |
 | Google / Spotify / Discord accounts | Not implemented; not advertised as supported bridge capabilities |
-| SABR-only streams, offline downloads, local files, Automix, Android EQ, Cast, watch integration | Not ported |
+| SABR-only streams, lyrics UI, crossfade, offline downloads, local files, Automix, Android EQ, Cast, watch integration | Not ported |
 
 YouTube can change stream eligibility independently of this app. A successful
 build does not establish that its playback clients still work. Verify a track
 past 90 seconds and seek near its end, not only its first few seconds.
 
 ## First run on your Mac
+
+**Simplest path:** download `BitChord-XcodeProject.zip` from the iOS preview
+release or the latest successful iOS workflow's `BitChord-XcodeProject-*`
+artifact. Extract it and open `BitChord.xcodeproj`. Everything is bundled;
+Node, pnpm and XcodeGen are not needed for that package. Select your Team under
+Signing & Capabilities, connect the iPhone and Run. See
+[the short Xcode guide](ios/OPEN_IN_XCODE.md) for Archive → IPA export.
+
+For development from a Git clone:
 
 Install Xcode 16.4 or later, open it once, accept its licence and install the
 iOS platform. Select that Xcode under Settings → Locations → Command Line Tools.
@@ -88,8 +99,15 @@ for every upload. `development` is also available for local development signing.
 ## GitHub Actions signing
 
 The `iOS` workflow builds a simulator app and an unsigned arm64 device archive
-on main pushes and pull requests, and runs a simulator launch/navigation test.
-The artifacts are zipped to preserve executable permissions. It also
+on main pushes and pull requests, and runs native UI tests for search, player,
+queue and favorites persistence using isolated fixture data, plus a normal
+launch smoke test. These tests do not establish live streaming playback.
+An additional live probe searches the external catalogue and checks that AVPlayer
+advances beyond 95 seconds. If the catalogue is blocked on a runner, that probe
+is explicitly skipped and its screenshot/accessibility evidence is retained;
+that skipped result is not playback validation.
+It also packages a ready-to-open Xcode project with all resources included.
+The artifacts are zipped to preserve executable permissions. The workflow also
 supports manual unsigned device archives and signed IPA exports. Signed jobs
 are limited to `main`, so pull requests do not receive signing material.
 
@@ -141,12 +159,12 @@ update is merged into main. Uploading that IPA to TestFlight remains separate.
 ## Device acceptance checklist
 
 - Browse home, search, open an album and play several tracks on Wi-Fi and mobile data.
-- Play longer than 90 seconds, seek forward/back, pause/resume and check lyrics timing.
+- Play longer than 90 seconds, seek forward/back and pause/resume.
 - Lock the device for several minutes, resume from Control Center and unlock.
 - Receive a phone call; verify interruption and resumption. Disconnect headphones.
-- Change tracks and exercise repeat/shuffle in the foreground. Record background queue limitations.
+- Change tracks and exercise repeat/shuffle in the foreground; test at least three queue transitions while locked.
 - Test AirPlay, landscape layout, iPad layout and a cold start without connectivity.
-- Confirm unsupported account integrations show an unavailable state, not a login loop.
+- Save favorites, restart the app and confirm the local library persists.
 
 ## Source and licence
 

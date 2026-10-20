@@ -86,6 +86,7 @@ struct ItemAction<Content: View>: View {
                 NavigationLink { DetailView(item: item) } label: { content() }.buttonStyle(.plain)
             }
         }
+        .accessibilityIdentifier(item.playable ? "track-\(item.id)" : "catalogue-\(item.id)")
         .contextMenu {
             Button { model.toggleFavorite(item) } label: { Label(model.favorite(item) ? "Remove from Favorites" : "Add to Favorites", systemImage: model.favorite(item) ? "heart.slash" : "heart") }
             if item.playable {
@@ -364,7 +365,7 @@ struct PlayerView: View {
                         Slider(value: Binding(get: { scrub ?? model.position }, set: { scrub = $0 }), in: 0...max(1, model.duration), onEditingChanged: { editing in
                             if !editing, let scrub { model.seek(scrub); self.scrub = nil }
                         }).accessibilityLabel("Playback position")
-                        HStack { Text(time(scrub ?? model.position)); Spacer(); Text("−" + time(max(0, model.duration - (scrub ?? model.position)))) }.font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                        HStack { Text(time(scrub ?? model.position)).accessibilityIdentifier("elapsed-time"); Spacer(); Text("−" + time(max(0, model.duration - (scrub ?? model.position)))) }.font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                     }
                     HStack(spacing: 40) {
                         Button { model.previous() } label: { Image(systemName: "backward.fill").font(.system(size: 30)) }.accessibilityLabel("Previous Track")
