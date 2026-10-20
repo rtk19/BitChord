@@ -30,6 +30,8 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
 final class CatalogueService: NSObject, WKScriptMessageHandlerWithReply, WKNavigationDelegate {
     private(set) var webView: WKWebView!
     private let network = NativeHTTP()
+    private var pending: [String: CheckedContinuation<String, Error>] = [:]
+    private var deadlines: [String: DispatchWorkItem] = [:]
     var ready = false
     var audio: AudioManager!
     var onTermination: (() -> Void)?
@@ -56,16 +58,47 @@ final class CatalogueService: NSObject, WKScriptMessageHandlerWithReply, WKNavig
         }
         guard ready else { throw CatalogueError.message("The music engine could not start. Please reopen BitChord.") }
         try Task.checkCancellation()
+        let id = UUID().uuidString
+        let encoded = try JSONSerialization.data(withJSONObject: ["id": id, "method": method, "params": params])
+        let arguments = String(decoding: encoded, as: UTF8.self)
+        // The classic ObjC evaluation API avoids a strong dependency on the
+        // Swift WebKit overlay, absent in the iOS 18.4/18.5 simulator runtime.
+        // Promise replies travel over the already authenticated message bridge.
         let script = """
-        try { return JSON.stringify({value: await window.__bcService(method, params)}) }
-        catch (error) { return JSON.stringify({error: error instanceof Error ? error.message : String(error)}) }
+        (() => {
+          const request = \(arguments);
+          Promise.resolve().then(() => window.__bcService(request.method, request.params))
+            .then(value => ({value}), error => ({error: error instanceof Error ? error.message : String(error)}))
+            .then(response => window.__bcNativeCall('service.result', {id: request.id, data: JSON.stringify(response)}));
+        })();
         """
-        let value = try await webView.callAsyncJavaScript(script, arguments: ["method": method, "params": params], in: nil, contentWorld: .page)
-        guard let json = value as? String, let data = json.data(using: .utf8) else { throw CatalogueError.message("The music service returned an empty response.") }
+        let json: String = try await withTaskCancellationHandler(operation: {
+            try await withCheckedThrowingContinuation { continuation in
+                guard !Task.isCancelled else { continuation.resume(throwing: CancellationError()); return }
+                pending[id] = continuation
+                let deadline = DispatchWorkItem { [weak self] in
+                    self?.settle(id, .failure(CatalogueError.message("The music service timed out. Please try again.")))
+                }
+                deadlines[id] = deadline
+                DispatchQueue.main.asyncAfter(deadline: .now() + (method == "resolve" ? 180 : 90), execute: deadline)
+                webView.evaluateJavaScript(script) { [weak self] _, error in
+                    if let error { self?.settle(id, .failure(error)) }
+                }
+            }
+        }, onCancel: { [weak self] in
+            Task { @MainActor in self?.settle(id, .failure(CancellationError())) }
+        })
+        let data = Data(json.utf8)
         let envelope = try JSONDecoder().decode(ServiceEnvelope<T>.self, from: data)
         if let error = envelope.error { throw CatalogueError.message(error) }
         guard let result = envelope.value else { throw CatalogueError.message("The music service returned an empty response.") }
         return result
+    }
+
+    private func settle(_ id: String, _ result: Result<String, Error>) {
+        guard let continuation = pending.removeValue(forKey: id) else { return }
+        deadlines.removeValue(forKey: id)?.cancel()
+        continuation.resume(with: result)
     }
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage, replyHandler: @escaping (Any?, String?) -> Void) {
@@ -76,6 +109,10 @@ final class CatalogueService: NSObject, WKScriptMessageHandlerWithReply, WKNavig
             replyHandler(nil, "Untrusted bridge request"); return
         }
         if method == "service.ready" { ready = true; replyHandler([:], nil) }
+        else if method == "service.result" {
+            guard let id = params["id"] as? String, let data = params["data"] as? String else { replyHandler(nil, "Invalid engine reply"); return }
+            settle(id, .success(data)); replyHandler([:], nil)
+        }
         else if method == "http.fetch" {
             Task { do { replyHandler(try await network.fetch(params), nil) } catch { replyHandler(nil, error.localizedDescription) } }
         } else { audio.handle(method, params: params, reply: replyHandler) }
@@ -88,6 +125,7 @@ final class CatalogueService: NSObject, WKScriptMessageHandlerWithReply, WKNavig
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
         ready = false
+        for id in Array(pending.keys) { settle(id, .failure(CatalogueError.message("The music engine restarted. Please try again."))) }
         onTermination?()
         webView.reload()
     }
