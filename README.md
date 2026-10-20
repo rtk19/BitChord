@@ -96,6 +96,8 @@ Grab the latest signed APK from the [Releases](https://github.com/kushagrasinghx
 
 For the Windows and Linux desktop app, see [DESKTOP.md](DESKTOP.md).
 
+For the initial iOS port, its current limitations, Xcode setup and signed IPA builds, see [IOS.md](IOS.md).
+
 </div>
 
 ---

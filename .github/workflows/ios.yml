@@ -30,6 +30,7 @@ jobs:
       APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
       IOS_BUILD_NUMBER: ${{ github.run_number }}
       IOS_VERSION: '0.1.0'
+      IOS_DISTRIBUTION: ${{ inputs.distribution || (github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.IOS_AUTO_DISTRIBUTION) || 'simulator' }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -50,36 +51,45 @@ jobs:
           pnpm --filter @bitchord/app typecheck
           pnpm --filter @bitchord/app test
       - name: Import signing material
-        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && (inputs.distribution == 'ad-hoc' || inputs.distribution == 'app-store-connect')
+        if: github.ref == 'refs/heads/main' && (env.IOS_DISTRIBUTION == 'ad-hoc' || env.IOS_DISTRIBUTION == 'app-store-connect')
         env:
           IOS_CERTIFICATE_P12_BASE64: ${{ secrets.IOS_CERTIFICATE_P12_BASE64 }}
           IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
           IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
         run: bash scripts/ios/install-signing.sh
       - name: Validate signing branch
-        if: inputs.distribution == 'ad-hoc' || inputs.distribution == 'app-store-connect'
+        if: env.IOS_DISTRIBUTION == 'ad-hoc' || env.IOS_DISTRIBUTION == 'app-store-connect'
         run: |
           test "$GITHUB_REF" = refs/heads/main || { echo 'Signed builds run from main only.'; exit 1; }
       - name: Build
         env:
-          DISTRIBUTION: ${{ inputs.distribution || 'simulator' }}
+          DISTRIBUTION: ${{ env.IOS_DISTRIBUTION }}
         run: bash scripts/ios/build.sh "$DISTRIBUTION"
+      - name: Launch and navigation smoke test
+        if: env.IOS_DISTRIBUTION == 'simulator'
+        run: bash scripts/ios/smoke.sh
+      - name: Upload UI test evidence
+        if: always() && env.IOS_DISTRIBUTION == 'simulator'
+        uses: actions/upload-artifact@v4
+        with:
+          name: BitChord-iOS-UI-tests-${{ github.run_number }}
+          path: ios/build/LaunchTests.xcresult
       - name: Upload simulator app
-        if: inputs.distribution == '' || inputs.distribution == 'simulator'
+        if: env.IOS_DISTRIBUTION == 'simulator'
         uses: actions/upload-artifact@v4
         with:
           name: BitChord-iOS-Simulator-${{ github.run_number }}
           path: ios/build/simulator/Build/Products/Release-iphonesimulator/BitChord.app
           if-no-files-found: error
       - name: Upload device archive
-        if: inputs.distribution == 'unsigned'
+        if: env.IOS_DISTRIBUTION == 'unsigned'
         uses: actions/upload-artifact@v4
         with:
           name: BitChord-iOS-unsigned-archive-${{ github.run_number }}
           path: ios/build/BitChord.xcarchive
           if-no-files-found: error
       - name: Upload signed IPA
-        if: inputs.distribution == 'ad-hoc' || inputs.distribution == 'app-store-connect'
+        if: env.IOS_DISTRIBUTION == 'ad-hoc' || env.IOS_DISTRIBUTION == 'app-store-connect'
         uses: actions/upload-artifact@v4
         with:
           name: BitChord-iOS-IPA-${{ github.run_number }}

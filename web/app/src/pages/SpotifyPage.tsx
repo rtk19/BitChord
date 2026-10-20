@@ -7,6 +7,7 @@ import { useExtension } from '@/extension/useExtension';
 import { openSpotifySignIn, useRefreshSpotifyAuth, useSetSpotifyConnected, useSpotifyAuth } from '@/extension/useSpotifyAuth';
 import { PlainSkeleton } from '@/skeletons/PageSkeletons';
 import { seeAllGrid } from './pageStyles';
+import { isIOSApp } from '@/native/ios';
 
 /**
  * The signed-in Spotify account's playlists (SpotifyLibraryScreen): this page
@@ -26,7 +27,7 @@ export default function SpotifyPage() {
     return (
       <>
         <PageHeader title="Spotify" />
-        <EmptyState title="Update the extension" detail="This version of the BitChord extension doesn’t include Spotify yet." />
+        <EmptyState title={isIOSApp() ? 'Spotify is not available yet' : 'Update the extension'} detail={isIOSApp() ? 'Spotify account integration is coming in a future iOS build.' : 'This version of the BitChord extension doesn’t include Spotify yet.'} />
       </>
     );
   }

@@ -18,7 +18,6 @@ targets:
     sources:
       - path: BitChord
         excludes: [Web, Info.plist]
-    resources:
       - path: BitChord/Web
         type: folder
     settings:
@@ -43,6 +42,16 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         ITSAppUsesNonExemptEncryption: false
+  BitChordUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [BitChordUITests]
+    dependencies:
+      - target: BitChord
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.rtk19.BitChord.UITests
+        GENERATE_INFOPLIST_FILE: YES
 schemes:
   BitChord:
     build:
@@ -52,3 +61,6 @@ schemes:
       config: Debug
     archive:
       config: Release
+    test:
+      config: Debug
+      targets: [BitChordUITests]

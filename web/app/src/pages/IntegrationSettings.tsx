@@ -20,6 +20,7 @@ import {
   type SpotifyAuthStatus,
 } from '@/extension/useSpotifyAuth';
 import { settingsUi } from './settingsStyles';
+import { isIOSApp } from '@/native/ios';
 
 /** Allowed, or an Allow button that opens the extension's permission page. */
 function HostAccessValue({ access, request }: ReturnType<typeof useHostAccess>) {
@@ -128,7 +129,7 @@ export function DiscordIntegration() {
 
 function discordText(status: DiscordStatus): string {
   if (status.state === 'checking') return 'Checking…';
-  if (status.state === 'unavailable') return 'Not in this build of the extension';
+  if (status.state === 'unavailable') return isIOSApp() ? 'Not available in this iOS build' : 'Not in this build of the extension';
   const { available, connected, enabled, user, gateway, problem } = status.discord;
   if (!available) return 'Not in this build of the extension';
   if (!connected || !user) return 'Not connected';

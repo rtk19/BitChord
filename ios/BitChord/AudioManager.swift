@@ -113,7 +113,7 @@ final class AudioManager {
         guard let raw = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
               let type = AVAudioSession.InterruptionType(rawValue: raw) else { return }
         if type == .began {
-            interrupted = active?.player.rate != 0
+            interrupted = (active?.player.rate ?? 0) != 0
             decks.values.forEach { $0.pause() }
         } else {
             let options = AVAudioSession.InterruptionOptions(rawValue: notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0)
