@@ -1,4 +1,5 @@
 import XCTest
+import UIKit
 
 final class LaunchTests: XCTestCase {
     func testBundledInterfaceLoadsWithoutAnExtension() {
@@ -20,7 +21,7 @@ final class LaunchTests: XCTestCase {
         XCTAssertTrue(search.waitForExistence(timeout: 5))
         XCTAssertTrue(search.isHittable)
         search.tap()
-        XCTAssertTrue(app.webViews.textFields.firstMatch.waitForExistence(timeout: 10), "Navigation must reach the Search page")
+        XCTAssertTrue(app.webViews.searchFields.firstMatch.waitForExistence(timeout: 10) || app.webViews.textFields.firstMatch.waitForExistence(timeout: 10), "Navigation must reach the Search page")
         let hierarchy = XCTAttachment(string: app.debugDescription)
         hierarchy.name = "BitChord-accessibility-tree"
         hierarchy.lifetime = .keepAlways

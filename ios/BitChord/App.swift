@@ -97,7 +97,7 @@ final class AppViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
           text: document.body.innerText.slice(0,1500), sheets: [...document.styleSheets].map(s=>s.href)})
         """
         webView.evaluateJavaScript(script) { result, error in
-            NSLog("BitChord render diagnostic frame=%@ result=%@ error=%@", NSStringFromCGRect(webView.frame), String(describing: result), String(describing: error))
+            NSLog("BitChord render diagnostic frame=%@ result=%@ error=%@", String(describing: webView.frame), String(describing: result), String(describing: error))
         }
     }
 }
