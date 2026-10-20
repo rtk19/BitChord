@@ -19,4 +19,4 @@ JSON
 cat > ios/BitChord/Assets.xcassets/Contents.json <<'JSON'
 {"info":{"author":"xcode","version":1}}
 JSON
-xcodegen generate --spec ios/project.yml --project ios
+IOS_VERSION=${IOS_VERSION:-$(python3 scripts/ios/version.py)} xcodegen generate --spec ios/project.yml --project ios

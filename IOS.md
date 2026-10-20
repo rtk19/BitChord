@@ -87,7 +87,9 @@ for every upload. `development` is also available for local development signing.
 
 ## GitHub Actions signing
 
-The `iOS` workflow builds a simulator app on pushes and pull requests. It also
+The `iOS` workflow builds a simulator app and an unsigned arm64 device archive
+on main pushes and pull requests, and runs a simulator launch/navigation test.
+The artifacts are zipped to preserve executable permissions. It also
 supports manual unsigned device archives and signed IPA exports. Signed jobs
 are limited to `main`, so pull requests do not receive signing material.
 

@@ -64,7 +64,17 @@ jobs:
       - name: Build
         env:
           DISTRIBUTION: ${{ env.IOS_DISTRIBUTION }}
-        run: bash scripts/ios/build.sh "$DISTRIBUTION"
+        run: |
+          bash scripts/ios/build.sh "$DISTRIBUTION"
+          if [[ "$DISTRIBUTION" == simulator ]]; then bash scripts/ios/build.sh unsigned; fi
+      - name: Package apps with executable permissions preserved
+        run: |
+          if [[ "$IOS_DISTRIBUTION" == simulator ]]; then
+            ditto -c -k --sequesterRsrc --keepParent ios/build/simulator/Build/Products/Release-iphonesimulator/BitChord.app ios/build/BitChord-Simulator.zip
+          fi
+          if [[ "$IOS_DISTRIBUTION" == simulator || "$IOS_DISTRIBUTION" == unsigned ]]; then
+            ditto -c -k --sequesterRsrc --keepParent ios/build/BitChord.xcarchive ios/build/BitChord-unsigned.xcarchive.zip
+          fi
       - name: Launch and navigation smoke test
         if: env.IOS_DISTRIBUTION == 'simulator'
         run: bash scripts/ios/smoke.sh
@@ -81,14 +91,14 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: BitChord-iOS-Simulator-${{ github.run_number }}
-          path: ios/build/simulator/Build/Products/Release-iphonesimulator/BitChord.app
+          path: ios/build/BitChord-Simulator.zip
           if-no-files-found: error
       - name: Upload device archive
-        if: env.IOS_DISTRIBUTION == 'unsigned'
+        if: env.IOS_DISTRIBUTION == 'unsigned' || env.IOS_DISTRIBUTION == 'simulator'
         uses: actions/upload-artifact@v4
         with:
           name: BitChord-iOS-unsigned-archive-${{ github.run_number }}
-          path: ios/build/BitChord.xcarchive
+          path: ios/build/BitChord-unsigned.xcarchive.zip
           if-no-files-found: error
       - name: Upload signed IPA
         if: env.IOS_DISTRIBUTION == 'ad-hoc' || env.IOS_DISTRIBUTION == 'app-store-connect'
