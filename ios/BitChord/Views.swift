@@ -16,9 +16,10 @@ struct RootView: View {
             tab("Search", icon: "magnifyingglass") { SearchView() }
         }
         .tint(accent)
+        .accessibilityHidden(model.showPlayer || settings)
         .preferredColorScheme(appearance == "dark" ? .dark : appearance == "light" ? .light : nil)
-        .sheet(isPresented: $model.showPlayer) { PlayerView() }
-        .sheet(isPresented: $settings) { SettingsView() }
+        .sheet(isPresented: $model.showPlayer) { PlayerView().tint(accent) }
+        .sheet(isPresented: $settings) { SettingsView().tint(accent) }
     }
     private func tab<Content: View>(_ title: String, icon: String, @ViewBuilder content: () -> Content) -> some View {
         NavigationStack {
@@ -347,10 +348,14 @@ struct PlayerView: View {
     @State private var scrub: Double?
     var body: some View {
         NavigationStack {
+            GeometryReader { geometry in
             ScrollView {
-                VStack(spacing: 28) {
+                VStack(spacing: 20) {
                     Artwork(address: model.current?.thumbnail)
-                        .aspectRatio(1, contentMode: .fit).shadow(color: .black.opacity(0.2), radius: 22, y: 14)
+                        .aspectRatio(1, contentMode: .fit)
+                        .frame(maxWidth: min(320, max(180, geometry.size.height * 0.4)))
+                        .frame(maxWidth: .infinity)
+                        .shadow(color: .black.opacity(0.2), radius: 22, y: 14)
                         .scaleEffect(model.playing ? 1 : 0.92).animation(.spring(response: 0.45, dampingFraction: 0.8), value: model.playing)
                         .padding(.top, 12)
                     HStack(alignment: .center) {
@@ -386,6 +391,7 @@ struct PlayerView: View {
                     }.font(.title3)
                     VolumeSlider().frame(height: 30)
                 }.padding(.horizontal, 30).padding(.bottom, 30)
+            }
             }
             .background(LinearGradient(colors: [accent.opacity(0.13), Color(uiColor: .systemBackground)], startPoint: .topLeading, endPoint: .bottomTrailing).ignoresSafeArea())
             .navigationTitle("Now Playing").navigationBarTitleDisplayMode(.inline)
@@ -466,7 +472,7 @@ struct ErrorView: View {
         VStack(spacing: 12) {
             Image(systemName: "wifi.exclamationmark").font(.title).foregroundStyle(.secondary)
             Text("Couldn't load music").font(.headline)
-            Text(message).font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center).lineLimit(4)
+            Text(message).font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center).lineLimit(4).accessibilityIdentifier("load-error")
             Button("Try Again", action: retry).buttonStyle(.bordered)
         }.frame(maxWidth: .infinity).padding(24)
     }

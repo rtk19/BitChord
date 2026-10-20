@@ -40,6 +40,7 @@ export async function loadIOSAudio(
       };
     } catch (error) {
       stillCurrent();
+      if (error instanceof Error && error.name === 'VerificationRequiredError') throw error;
       failure = error;
     }
   }

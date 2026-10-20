@@ -15,6 +15,14 @@ const aac = { itag: 140, bitrate: 128000, has_audio: true, has_video: false, mim
 afterEach(() => { mocks.resolve.mockReset(); delete window.__bcNativeCall; });
 
 describe('iOS stream loading', () => {
+  it('preserves an explicit verification refusal without replacing it with an empty-client error', async () => {
+    const refusal = Object.assign(new Error('YouTube requested verification'), { name: 'VerificationRequiredError' });
+    mocks.resolve.mockRejectedValue(refusal);
+    window.__bcNativeCall = vi.fn();
+    await expect(loadIOSAudio(createIOSAudio(), 'video', 0, true, () => {})).rejects.toBe(refusal);
+    expect(mocks.resolve).toHaveBeenCalledTimes(1);
+    expect(window.__bcNativeCall).not.toHaveBeenCalled();
+  });
   it('skips an unsupported codec and tries another client for native AAC playback', async () => {
     mocks.resolve.mockResolvedValueOnce(resolved([{ ...aac, mime_type: 'audio/webm' }]))
       .mockResolvedValueOnce(resolved([aac], 'YTMUSIC'));

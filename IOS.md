@@ -103,7 +103,8 @@ on main pushes and pull requests, and runs native UI tests for search, player,
 queue and favorites persistence using isolated fixture data, plus a normal
 launch smoke test. These tests do not establish live streaming playback.
 An additional live probe searches the external catalogue and checks that AVPlayer
-advances beyond 95 seconds. If the catalogue is blocked on a runner, that probe
+advances beyond 95 seconds. If the catalogue is blocked or YouTube explicitly
+requests network verification on a runner, that probe
 is explicitly skipped and its screenshot/accessibility evidence is retained;
 that skipped result is not playback validation.
 It also packages a ready-to-open Xcode project with all resources included.
