@@ -1,0 +1,96 @@
+name: Publish iOS project preview
+
+on:
+  push:
+    branches: [ios/publish-preview]
+    paths: [.github/workflows/publish-ios-preview.yml]
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'Source iOS workflow run ID (blank: latest built project on ios/port)'
+        type: string
+        required: false
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: publish-ios-project
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'rtk19/BitChord'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Select a project with a successful native build
+        id: source
+        uses: actions/github-script@v7
+        env:
+          SOURCE_RUN_INPUT: ${{ inputs.run_id }}
+        with:
+          script: |
+            const repo = context.repo;
+            const requested = process.env.SOURCE_RUN_INPUT || '';
+            if (requested && !/^\d+$/.test(requested)) throw new Error('run_id must be numeric');
+            const workflow = (await github.rest.actions.getWorkflow({...repo, workflow_id: 'ios.yml'})).data;
+            const runs = requested
+              ? [(await github.rest.actions.getWorkflowRun({...repo, run_id: Number(requested)})).data]
+              : (await github.rest.actions.listWorkflowRuns({...repo, workflow_id: workflow.id, branch: 'ios/port', per_page: 20})).data.workflow_runs;
+            for (const run of runs) {
+              if (run.workflow_id !== workflow.id || run.head_repository?.full_name?.toLowerCase() !== `${repo.owner}/${repo.repo}`.toLowerCase()) continue;
+              if (!['ios/port', 'main'].includes(run.head_branch)) continue;
+              const jobs = (await github.rest.actions.listJobsForWorkflowRun({...repo, run_id: run.id, per_page: 100})).data.jobs;
+              if (!jobs.some(job => job.steps?.some(step => step.name === 'Build' && step.conclusion === 'success'))) continue;
+              const artifacts = (await github.rest.actions.listWorkflowRunArtifacts({...repo, run_id: run.id})).data.artifacts;
+              const artifact = artifacts.find(a => !a.expired && a.name.startsWith('BitChord-XcodeProject-'));
+              if (!artifact) continue;
+              if (!/^[a-f0-9]{40}$/.test(run.head_sha)) throw new Error('Invalid source revision');
+              core.setOutput('run_id', String(run.id));
+              core.setOutput('artifact', artifact.name);
+              core.setOutput('sha', run.head_sha);
+              core.setOutput('tag', `ios-native-preview-${run.run_number}`);
+              const body = [
+                'Native SwiftUI preview project for local Xcode signing and iPhone testing.',
+                '',
+                'Download **BitChord-XcodeProject.zip**, extract it and open **BitChord.xcodeproj**. All resources are included; Node, pnpm and XcodeGen are not required.',
+                '',
+                '1. Select the BitChord target → Signing & Capabilities → your Apple Developer Team, with automatic signing enabled.',
+                '2. Select your connected iPhone and Run.',
+                '3. For an IPA: Any iOS Device → Product → Archive → Distribute App. Use Debugging/Release Testing for registered devices, or App Store Connect for TestFlight.',
+                '',
+                `Source: ${run.head_sha}. [Native build and test status](${run.html_url}).`,
+                '',
+                'This is a test preview. The native build step passed; inspect the linked run for the full test result. Live streaming and continuous locked-device queue playback still need iPhone validation. YouTube requested network verification during the hosted-runner playback probe, so that is not successful streaming proof.',
+                '',
+                'Favorites/history are local. Account sync, offline downloads, lyrics UI and full Android feature parity are not included. No signed IPA is included.',
+                '',
+                `[Setup and limitations](https://github.com/${repo.owner}/${repo.repo}/blob/${run.head_sha}/IOS.md). Original: https://github.com/kushagrasinghx/BitChord`,
+              ].join('\n');
+              require('fs').writeFileSync('preview-notes.md', body);
+              return;
+            }
+            throw new Error('No trusted iOS project artifact with a successful native build was found');
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ steps.source.outputs.run_id }}
+          name: ${{ steps.source.outputs.artifact }}
+          path: release
+      - name: Publish project ZIP
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREVIEW_TAG: ${{ steps.source.outputs.tag }}
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+        run: |
+          test -s release/BitChord-XcodeProject.zip
+          if gh release view "$PREVIEW_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            has_asset=$(gh release view "$PREVIEW_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq 'any(.assets[]; .name == "BitChord-XcodeProject.zip")')
+            if [[ "$has_asset" != true ]]; then gh release upload "$PREVIEW_TAG" release/BitChord-XcodeProject.zip --repo "$GITHUB_REPOSITORY"; fi
+          else
+            gh release create "$PREVIEW_TAG" release/BitChord-XcodeProject.zip --repo "$GITHUB_REPOSITORY" \
+              --target "$SOURCE_SHA" --prerelease --title 'BitChord iOS — Native Preview' --notes-file preview-notes.md
+          fi
+          echo "Project preview: https://github.com/$GITHUB_REPOSITORY/releases/tag/$PREVIEW_TAG" >> "$GITHUB_STEP_SUMMARY"
