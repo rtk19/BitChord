@@ -87,4 +87,17 @@ final class AppViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
     }
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) { audio.reset(); webView.reload() }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        guard ProcessInfo.processInfo.arguments.contains("--ui-testing") else { return }
+        let script = """
+        JSON.stringify({url: location.href, viewport: [innerWidth,innerHeight],
+          root: document.getElementById('root')?.getBoundingClientRect().toJSON(),
+          menu: document.querySelector('[aria-label="Open menu"]')?.getBoundingClientRect().toJSON(),
+          text: document.body.innerText.slice(0,1500), sheets: [...document.styleSheets].map(s=>s.href)})
+        """
+        webView.evaluateJavaScript(script) { result, error in
+            NSLog("BitChord render diagnostic frame=%@ result=%@ error=%@", NSStringFromCGRect(webView.frame), String(describing: result), String(describing: error))
+        }
+    }
 }
