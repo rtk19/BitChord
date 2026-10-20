@@ -37,7 +37,7 @@ final class LaunchTests: XCTestCase {
                                           bitsPerComponent: 8, bytesPerRow: width * 4,
                                           space: CGColorSpaceCreateDeviceRGB(),
                                           bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return false }
-            context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+            context.draw(image, in: CGRect(x: 0, y: 0, width: CGFloat(width), height: CGFloat(height)))
             let bytes = buffer.bindMemory(to: UInt8.self)
             var painted = 0
             // Exclude the status bar and home indicator; inspect the app's area.
