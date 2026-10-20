@@ -18,4 +18,13 @@ final class EngineTests: XCTestCase {
         let saved = try JSONEncoder().encode(item)
         XCTAssertEqual(try JSONDecoder().decode(MusicItem.self, from: saved), item)
     }
+
+    @MainActor
+    func testJavascriptFailuresKeepAnActionableMessage() async throws {
+        let delegate = try XCTUnwrap(UIApplication.shared.delegate as? AppDelegate)
+        do {
+            let _: EmptyResponse = try await delegate.model.service.request("unsupported-test-method")
+            XCTFail("An unsupported request must fail")
+        } catch { XCTAssertTrue(error.localizedDescription.contains("Unknown catalogue method")) }
+    }
 }

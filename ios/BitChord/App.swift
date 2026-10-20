@@ -56,9 +56,16 @@ final class CatalogueService: NSObject, WKScriptMessageHandlerWithReply, WKNavig
         }
         guard ready else { throw CatalogueError.message("The music engine could not start. Please reopen BitChord.") }
         try Task.checkCancellation()
-        let value = try await webView.callAsyncJavaScript("return JSON.stringify(await window.__bcService(method, params))", arguments: ["method": method, "params": params], in: nil, contentWorld: .page)
+        let script = """
+        try { return JSON.stringify({value: await window.__bcService(method, params)}) }
+        catch (error) { return JSON.stringify({error: error instanceof Error ? error.message : String(error)}) }
+        """
+        let value = try await webView.callAsyncJavaScript(script, arguments: ["method": method, "params": params], in: nil, contentWorld: .page)
         guard let json = value as? String, let data = json.data(using: .utf8) else { throw CatalogueError.message("The music service returned an empty response.") }
-        return try JSONDecoder().decode(type, from: data)
+        let envelope = try JSONDecoder().decode(ServiceEnvelope<T>.self, from: data)
+        if let error = envelope.error { throw CatalogueError.message(error) }
+        guard let result = envelope.value else { throw CatalogueError.message("The music service returned an empty response.") }
+        return result
     }
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage, replyHandler: @escaping (Any?, String?) -> Void) {
@@ -89,4 +96,9 @@ final class CatalogueService: NSObject, WKScriptMessageHandlerWithReply, WKNavig
 enum CatalogueError: LocalizedError {
     case message(String)
     var errorDescription: String? { if case let .message(text) = self { return text }; return nil }
+}
+
+private struct ServiceEnvelope<T: Decodable>: Decodable {
+    let value: T?
+    let error: String?
 }
