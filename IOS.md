@@ -68,7 +68,8 @@ Do not put certificates, profiles, passwords or API keys in Git or chat.
 ```bash
 export APPLE_TEAM_ID=YOURTEAMID
 export IOS_BUNDLE_ID=io.github.rtk19.BitChord
-export IOS_VERSION=0.1.0
+# Optional: override the version read from upstream's build.gradle.kts.
+# export IOS_VERSION=1.8.1
 export IOS_BUILD_NUMBER=1
 bash scripts/ios/prepare.sh
 bash scripts/ios/build.sh ad-hoc

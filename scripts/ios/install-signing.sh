@@ -14,6 +14,10 @@ for variable, filename in [('IOS_CERTIFICATE_P12_BASE64', 'certificate.p12'), ('
     (root / filename).write_bytes(base64.b64decode(os.environ[variable], validate=True))
 PY
 keychain="$signing_dir/signing.keychain-db"
+{
+  echo "IOS_SIGNING_KEYCHAIN=$keychain"
+  echo "IOS_SIGNING_DIR=$signing_dir"
+} >> "$GITHUB_ENV"
 password=$(openssl rand -hex 24)
 security create-keychain -p "$password" "$keychain"
 security set-keychain-settings -lut 21600 "$keychain"
@@ -31,7 +35,5 @@ installed_profile="$HOME/Library/MobileDevice/Provisioning Profiles/$profile_uui
 cp "$signing_dir/profile.mobileprovision" "$installed_profile"
 {
   echo "IOS_PROFILE_NAME=$profile_name"
-  echo "IOS_SIGNING_KEYCHAIN=$keychain"
   echo "IOS_INSTALLED_PROFILE=$installed_profile"
-  echo "IOS_SIGNING_DIR=$signing_dir"
 } >> "$GITHUB_ENV"

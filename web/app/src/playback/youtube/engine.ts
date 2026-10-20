@@ -74,6 +74,7 @@ export class YouTubeEngine {
   private adapter: SabrStreamingAdapter | null = null;
   private yt: Innertube | null = null;
   private generation = 0;
+  private nativeVideoId: string | null = null;
   private loading = false;
   private current: { videoId: string; client: PlayerClientName; signed: boolean } | null = null;
   /** The response the playing track streams from, when it has direct URLs; the video picture comes from it too. */
@@ -87,6 +88,9 @@ export class YouTubeEngine {
 
   constructor(audio: HTMLAudioElement) {
     this.audio = audio;
+    if (isIOSApp()) audio.addEventListener('error', (event) => {
+      if (this.nativeVideoId) this.onFatal(this.nativeVideoId, event instanceof CustomEvent && typeof event.detail === 'string' ? event.detail : 'Native audio playback failed', false);
+    });
     // Opus (itag 251) when the browser can decode it in MSE, AAC (140)
     // otherwise, which is Safari: unsupported, but it must not crash.
     const opus = typeof MediaSource !== 'undefined' && MediaSource.isTypeSupported('audio/webm; codecs="opus"');
@@ -144,7 +148,10 @@ export class YouTubeEngine {
    */
   async load(videoId: string, { startSec = 0, autoplay = true } = {}): Promise<LoadedTrack> {
     const generation = ++this.generation;
-    if (isIOSApp()) return loadIOSAudio(this.audio, videoId, startSec, autoplay, () => this.checkCurrent(generation));
+    if (isIOSApp()) {
+      this.nativeVideoId = videoId;
+      return loadIOSAudio(this.audio, videoId, startSec, autoplay, () => this.checkCurrent(generation));
+    }
     this.loading = true;
     const started = performance.now();
     trackLog.i(`loading at ${startSec.toFixed(1)}s`, videoId);
@@ -435,6 +442,7 @@ export class YouTubeEngine {
   async stop(): Promise<void> {
     this.generation++;
     if (isIOSApp()) {
+      this.nativeVideoId = null;
       await nativeCall('audio.stop', { id: nativeDeckId(this.audio) });
       return;
     }

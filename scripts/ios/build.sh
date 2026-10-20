@@ -9,7 +9,8 @@ case "$distribution" in simulator|unsigned|development|ad-hoc|app-store-connect)
 mkdir -p ios/build
 args=(-project ios/BitChord.xcodeproj -scheme BitChord -configuration Release)
 args+=("PRODUCT_BUNDLE_IDENTIFIER=${IOS_BUNDLE_ID:-io.github.rtk19.BitChord}")
-args+=("MARKETING_VERSION=${IOS_VERSION:-0.1.0}" "CURRENT_PROJECT_VERSION=${IOS_BUILD_NUMBER:-1}")
+version=${IOS_VERSION:-$(python3 scripts/ios/version.py)}
+args+=("MARKETING_VERSION=$version" "CURRENT_PROJECT_VERSION=${IOS_BUILD_NUMBER:-1}")
 if [[ "$distribution" == simulator ]]; then
   xcodebuild "${args[@]}" -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath ios/build/simulator CODE_SIGNING_ALLOWED=NO build
   exit 0

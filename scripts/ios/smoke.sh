@@ -6,3 +6,4 @@ device=$(xcrun simctl list devices available --json | python3 -c 'import json,sy
 xcodebuild -project ios/BitChord.xcodeproj -scheme BitChord -configuration Debug \
   -destination "platform=iOS Simulator,id=$device" -derivedDataPath ios/build/tests \
   -resultBundlePath ios/build/LaunchTests.xcresult CODE_SIGNING_ALLOWED=NO test
+xcrun xcresulttool export attachments --path ios/build/LaunchTests.xcresult --output-path ios/build/screenshots

@@ -59,7 +59,7 @@ export function createIOSAudio(): HTMLAudioElement {
   window.addEventListener('bitchord:audio', ((event: CustomEvent<NativeAudioState>) => {
     if (event.detail.id !== id) return;
     state = event.detail;
-    audio.dispatchEvent(new Event(state.event));
+    audio.dispatchEvent(state.event === 'error' ? new CustomEvent('error', { detail: state.error }) : new Event(state.event));
   }) as EventListener);
   return audio;
 }

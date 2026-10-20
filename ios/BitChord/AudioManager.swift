@@ -43,6 +43,13 @@ final class AudioManager {
 
     func refresh() { decks.values.forEach { $0.send("timeupdate") } }
 
+    func reset() {
+        decks.values.forEach { $0.stop() }
+        activeID = nil
+        metadata = [:]
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+    }
+
     private func deck(_ id: Int) -> AudioDeck {
         if let existing = decks[id] { return existing }
         let result = AudioDeck(id: id) { [weak self] state in
@@ -141,6 +148,7 @@ private final class AudioDeck {
     private var timeControl: NSKeyValueObservation?
     private var timer: Any?
     private var endedObserver: NSObjectProtocol?
+    private var failedObserver: NSObjectProtocol?
     private var pending: AudioManager.Reply?
     private var timeout: DispatchWorkItem?
     private var ended = false
@@ -197,6 +205,14 @@ private final class AudioDeck {
             self?.ended = true
             self?.send("ended")
         }
+        failedObserver = NotificationCenter.default.addObserver(forName: .AVPlayerItemFailedToPlayToEndTime, object: item, queue: .main) { [weak self] notification in
+            guard let self else { return }
+            let error = notification.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? Error
+            self.player.pause()
+            self.emit(["id": self.id, "event": "error", "position": self.position, "duration": self.duration,
+                       "paused": true, "ended": false, "rate": Double(self.rate),
+                       "error": error?.localizedDescription ?? "The media stream stopped unexpectedly"])
+        }
         let timeout = DispatchWorkItem { [weak self] in
             guard let self, token == self.generation, self.pending != nil else { return }
             self.player.pause()
@@ -228,6 +244,8 @@ private final class AudioDeck {
         status = nil
         if let endedObserver { NotificationCenter.default.removeObserver(endedObserver) }
         endedObserver = nil
+        if let failedObserver { NotificationCenter.default.removeObserver(failedObserver) }
+        failedObserver = nil
         player.pause()
         player.replaceCurrentItem(with: nil)
         ended = false
@@ -235,5 +253,6 @@ private final class AudioDeck {
     deinit {
         if let timer { player.removeTimeObserver(timer) }
         if let endedObserver { NotificationCenter.default.removeObserver(endedObserver) }
+        if let failedObserver { NotificationCenter.default.removeObserver(failedObserver) }
     }
 }

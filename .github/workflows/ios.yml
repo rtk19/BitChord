@@ -3,7 +3,6 @@ name: iOS
 on:
   push:
     branches: [main, ios/port]
-    paths: ['ios/**', 'scripts/ios/**', 'web/**', '.github/workflows/ios.yml']
   pull_request:
     paths: ['ios/**', 'scripts/ios/**', 'web/**', '.github/workflows/ios.yml']
   workflow_dispatch:
@@ -29,10 +28,11 @@ jobs:
       IOS_BUNDLE_ID: ${{ vars.IOS_BUNDLE_ID || 'io.github.rtk19.BitChord' }}
       APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
       IOS_BUILD_NUMBER: ${{ github.run_number }}
-      IOS_VERSION: '0.1.0'
       IOS_DISTRIBUTION: ${{ inputs.distribution || (github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.IOS_AUTO_DISTRIBUTION) || 'simulator' }}
     steps:
       - uses: actions/checkout@v4
+      - name: Read upstream app version
+        run: echo "IOS_VERSION=$(python3 scripts/ios/version.py)" >> "$GITHUB_ENV"
       - uses: pnpm/action-setup@v4
         with:
           package_json_file: web/package.json
@@ -73,7 +73,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: BitChord-iOS-UI-tests-${{ github.run_number }}
-          path: ios/build/LaunchTests.xcresult
+          path: |
+            ios/build/LaunchTests.xcresult
+            ios/build/screenshots
       - name: Upload simulator app
         if: env.IOS_DISTRIBUTION == 'simulator'
         uses: actions/upload-artifact@v4
@@ -98,6 +100,6 @@ jobs:
       - name: Clean signing material
         if: always()
         run: |
-          if [[ -n "$IOS_SIGNING_KEYCHAIN" ]]; then security delete-keychain "$IOS_SIGNING_KEYCHAIN"; fi
+          if [[ -n "$IOS_SIGNING_KEYCHAIN" ]]; then security delete-keychain "$IOS_SIGNING_KEYCHAIN" || true; fi
           if [[ -n "$IOS_INSTALLED_PROFILE" ]]; then rm -f "$IOS_INSTALLED_PROFILE"; fi
           if [[ -n "$IOS_SIGNING_DIR" ]]; then rm -rf "$IOS_SIGNING_DIR"; fi

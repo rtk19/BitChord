@@ -86,5 +86,5 @@ final class AppViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
         return nil
     }
 
-    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) { webView.reload() }
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) { audio.reset(); webView.reload() }
 }

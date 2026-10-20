@@ -1,6 +1,7 @@
 import type { LoadedTrack } from '@/playback/youtube/engine';
 import { getInnertube } from '@/playback/youtube/innertube';
-import { CLIENT_ATTEMPTS, resolvePlayer, type PlayerClientName } from '@/playback/youtube/resolver';
+import { CLIENT_ATTEMPTS, resolvePlayer, usesWebPo, type PlayerClientName } from '@/playback/youtube/resolver';
+import { botguard } from '@/playback/youtube/botguard';
 import { nativeCall, nativeDeckId } from './ios';
 
 /** AVFoundation accepts progressive AAC audio; SABR/DASH remain on the browser engine. */
@@ -20,11 +21,13 @@ export async function loadIOSAudio(
         .sort((a, b) => b.bitrate - a.bitrate);
       const format = formats[0];
       if (!format) continue;
-      const url = await format.decipher(yt.session.player);
+      const url = new URL(await format.decipher(yt.session.player));
+      const pot = usesWebPo(client) ? await botguard.mint(videoId) : undefined;
+      if (pot) url.searchParams.set('pot', pot);
       stillCurrent();
       const basic = info.basic_info;
       await nativeCall('audio.load', {
-        id: nativeDeckId(audio), url, startSec, autoplay, videoId,
+        id: nativeDeckId(audio), url: url.toString(), startSec, autoplay, videoId,
         title: basic.title ?? '', artist: basic.author ?? '',
         artwork: basic.thumbnail?.[0]?.url ?? null,
       });
