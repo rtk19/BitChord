@@ -15,6 +15,7 @@ function devExtensionId(): string {
 }
 
 export default defineConfig({
+  base: process.env.BITCHORD_IOS === '1' ? './' : '/',
   plugins: [react(), tailwindcss()],
   define: {
     DEV_EXTENSION_ID: JSON.stringify(devExtensionId()),

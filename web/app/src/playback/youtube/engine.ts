@@ -17,6 +17,8 @@ import {
   type ResolvedPlayer,
 } from './resolver';
 import { ShakaPlayerAdapter } from './ShakaPlayerAdapter';
+import { isIOSApp, nativeCall, nativeDeckId } from '@/native/ios';
+import { loadIOSAudio } from '@/native/engine';
 
 /** What the engine knows about the track it loaded. */
 export interface LoadedTrack {
@@ -142,6 +144,7 @@ export class YouTubeEngine {
    */
   async load(videoId: string, { startSec = 0, autoplay = true } = {}): Promise<LoadedTrack> {
     const generation = ++this.generation;
+    if (isIOSApp()) return loadIOSAudio(this.audio, videoId, startSec, autoplay, () => this.checkCurrent(generation));
     this.loading = true;
     const started = performance.now();
     trackLog.i(`loading at ${startSec.toFixed(1)}s`, videoId);
@@ -431,6 +434,10 @@ export class YouTubeEngine {
 
   async stop(): Promise<void> {
     this.generation++;
+    if (isIOSApp()) {
+      await nativeCall('audio.stop', { id: nativeDeckId(this.audio) });
+      return;
+    }
     this.current = null;
     this.direct = null;
     await this.player?.unload();
