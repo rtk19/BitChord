@@ -11,6 +11,7 @@ pnpm --dir web install --frozen-lockfile
 BITCHORD_IOS=1 pnpm --dir web --filter @bitchord/app build
 mkdir -p ios/BitChord/Web
 rsync -a --delete web/app/dist/ ios/BitChord/Web/
+mv ios/BitChord/Web/ios.html ios/BitChord/Web/index.html
 mkdir -p ios/BitChord/Assets.xcassets/AppIcon.appiconset
 xcrun swift scripts/ios/icon.swift Logo.png ios/BitChord/Assets.xcassets/AppIcon.appiconset/Icon.png
 cat > ios/BitChord/Assets.xcassets/AppIcon.appiconset/Contents.json <<'JSON'

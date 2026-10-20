@@ -16,6 +16,9 @@ function devExtensionId(): string {
 
 export default defineConfig({
   base: process.env.BITCHORD_IOS === '1' ? './' : '/',
+  build: process.env.BITCHORD_IOS === '1' ? {
+    rolldownOptions: { input: fileURLToPath(new URL('./ios.html', import.meta.url)) },
+  } : {},
   plugins: [react(), tailwindcss()],
   define: {
     DEV_EXTENSION_ID: JSON.stringify(devExtensionId()),
