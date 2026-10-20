@@ -320,7 +320,10 @@ struct MiniPlayer: View {
     var body: some View {
         if let item = model.current {
             HStack(spacing: 12) {
-                Button { model.showPlayer = true } label: {
+                Button {
+                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                    model.showPlayer = true
+                } label: {
                     HStack(spacing: 12) {
                         Artwork(address: item.thumbnail).frame(width: 42, height: 42)
                         VStack(alignment: .leading, spacing: 3) {
