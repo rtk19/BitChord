@@ -1,9 +1,6 @@
 name: Publish iOS project preview
 
 on:
-  push:
-    branches: [ios/publish-preview]
-    paths: [.github/workflows/publish-ios-preview.yml]
   workflow_dispatch:
     inputs:
       run_id:
@@ -40,6 +37,7 @@ jobs:
               ? [(await github.rest.actions.getWorkflowRun({...repo, run_id: Number(requested)})).data]
               : (await github.rest.actions.listWorkflowRuns({...repo, workflow_id: workflow.id, branch: 'ios/port', per_page: 20})).data.workflow_runs;
             for (const run of runs) {
+              if (run.status !== 'completed' || run.conclusion !== 'success') continue;
               if (run.workflow_id !== workflow.id || run.head_repository?.full_name?.toLowerCase() !== `${repo.owner}/${repo.repo}`.toLowerCase()) continue;
               if (!['ios/port', 'main'].includes(run.head_branch)) continue;
               const jobs = (await github.rest.actions.listJobsForWorkflowRun({...repo, run_id: run.id, per_page: 100})).data.jobs;
