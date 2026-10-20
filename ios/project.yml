@@ -42,6 +42,16 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         ITSAppUsesNonExemptEncryption: false
+  BitChordTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [BitChordTests]
+    dependencies:
+      - target: BitChord
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.rtk19.BitChord.Tests
+        GENERATE_INFOPLIST_FILE: YES
   BitChordUITests:
     type: bundle.ui-testing
     platform: iOS
@@ -63,4 +73,4 @@ schemes:
       config: Release
     test:
       config: Debug
-      targets: [BitChordUITests]
+      targets: [BitChordTests, BitChordUITests]

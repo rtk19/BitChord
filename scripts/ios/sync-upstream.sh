@@ -27,7 +27,8 @@ fi
 previous=$(git ls-remote origin "refs/heads/$branch" | cut -f1)
 git push "--force-with-lease=refs/heads/$branch:$previous" origin "HEAD:refs/heads/$branch"
 body=$(mktemp)
-trap 'rm -f "$body"' EXIT
+payload=$(mktemp)
+trap 'rm -f "$body" "$payload"' EXIT
 cat > "$body" <<EOF
 Merge upstream release $tag ($released) into the iOS fork.
 
@@ -37,7 +38,11 @@ and device playback checks before merging. Signed releases are built from main.
 EOF
 number=$(gh pr list --repo "$TARGET_REPOSITORY" --head "$branch" --state open --json number --jq '.[0].number // empty')
 if [[ -n "$number" ]]; then
-  gh pr edit "$number" --repo "$TARGET_REPOSITORY" --title "iOS: integrate upstream $tag" --body-file "$body"
+  python3 - "$body" "$payload" "$tag" <<'PY'
+import json, pathlib, sys
+json.dump({'title': 'iOS: integrate upstream ' + sys.argv[3], 'body': pathlib.Path(sys.argv[1]).read_text()}, open(sys.argv[2], 'w'))
+PY
+  gh api --method PATCH "repos/$TARGET_REPOSITORY/pulls/$number" --input "$payload" >/dev/null
 else
   gh pr create --repo "$TARGET_REPOSITORY" --base main --head "$branch" --title "iOS: integrate upstream $tag" --body-file "$body"
 fi

@@ -172,7 +172,7 @@ struct FeedView: View {
         guard let cursor else { return }
         moreLoading = true
         do { let page: PagedItems<MusicShelf> = try await model.fetch("more", ["cursor": cursor]); shelves += page.data; self.cursor = page.cursor }
-        catch { error = error.localizedDescription }
+        catch { self.error = error.localizedDescription }
         moreLoading = false
     }
 }
@@ -309,7 +309,7 @@ struct DetailView: View {
         guard let cursor = page?.cursor else { return }
         moreLoading = true
         do { let next: PagedItems<MusicItem> = try await model.fetch("more", ["cursor": cursor]); page?.tracks = tracks + next.data; page?.cursor = next.cursor }
-        catch { error = error.localizedDescription }
+        catch { self.error = error.localizedDescription }
         moreLoading = false
     }
 }

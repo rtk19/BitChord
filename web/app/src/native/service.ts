@@ -20,6 +20,7 @@ function paged(data: unknown, next: (() => Promise<unknown>) | null): { data: un
 
 export async function request(method: string, p: Record<string, string | number>): Promise<unknown> {
   switch (method) {
+    case 'ping': return { protocol: 1 };
     case 'home': { const page = await music.fetchHome(); return paged(page.data, page.next); }
     case 'explore': return music.fetchExplore();
     case 'search': return music.fetchSearch(String(p.query));

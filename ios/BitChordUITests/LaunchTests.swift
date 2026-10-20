@@ -16,7 +16,7 @@ final class LaunchTests: XCTestCase {
         let search = app.searchFields.firstMatch
         XCTAssertTrue(search.waitForExistence(timeout: 5))
         search.tap(); search.typeText("Night")
-        let song = app.buttons.containing(.staticText, identifier: "Night Drive").firstMatch
+        let song = app.buttons["track-test-night"].firstMatch
         XCTAssertTrue(song.waitForExistence(timeout: 10))
         capture("Native-Search")
         song.tap()

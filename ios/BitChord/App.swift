@@ -4,12 +4,13 @@ import WebKit
 @main
 final class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
+    private(set) var model: MusicModel!
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("--reset-library") { UserDefaults.standard.removeObject(forKey: LocalLibrary.key) }
         #endif
-        let model = MusicModel()
-        let host = UIHostingController(rootView: RootView().environmentObject(model))
+        model = MusicModel()
+        let host = UIHostingController(rootView: RootView().environmentObject(model!))
         let window = UIWindow(frame: UIScreen.main.bounds)
         window.rootViewController = host
         window.makeKeyAndVisible()
