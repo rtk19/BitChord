@@ -62,6 +62,12 @@ export class UnplayableError extends Error {
   }
 }
 
+/** A network/session challenge is not an age restriction on the track. */
+export class VerificationRequiredError extends Error {
+  override readonly name = 'VerificationRequiredError';
+  constructor() { super('YouTube requested verification for this network. Please try again later.'); }
+}
+
 /** A client answered OK, with a stream to play (direct URLs, a SABR URL, or both). */
 export interface ResolvedPlayer {
   videoId: string;
@@ -181,7 +187,7 @@ export async function playerRequest(
 }
 
 /** Why a playability status is a verdict on the track rather than on the client, or null if it isn't. */
-const AGE_GATE = /confirm your age|age-restricted|inappropriate for some users|sign in to confirm/;
+const AGE_GATE = /confirm your age|age-restricted|inappropriate for some users|sign in to confirm your age/;
 
 function permanentReason(status: string | undefined, reason: string | undefined, signedIn: boolean): string | null {
   const text = (reason ?? '').toLowerCase();
@@ -220,6 +226,7 @@ export async function resolvePlayer(
   let lastReason = 'No YouTube client would play this track';
   let permanent: string | null = null;
   let ageGated = false;
+  let verification = false;
 
   for (const client of candidates) {
     const started = performance.now();
@@ -236,6 +243,11 @@ export async function resolvePlayer(
       }
       const reason = info.playability_status?.reason ?? (status === 'OK' ? 'no audio stream in the response' : status ?? 'no status');
       lastReason = reason;
+      if (/not a bot|unusual traffic/i.test(reason)) {
+        verification = true;
+        trackLog.w(`${client} requested network verification`, videoId);
+        continue;
+      }
       const verdict = permanentReason(status, reason, signed);
       if (verdict) {
         permanent = verdict;
@@ -252,5 +264,6 @@ export async function resolvePlayer(
     rememberUnplayable(videoId, signed, permanent, ageGated);
     throw new UnplayableError(permanent, ageGated);
   }
+  if (verification) throw new VerificationRequiredError();
   throw new Error(lastReason);
 }

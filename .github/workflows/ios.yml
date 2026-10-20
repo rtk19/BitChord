@@ -1,0 +1,130 @@
+name: iOS
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths: ['ios/**', 'scripts/ios/**', 'web/**', '.github/workflows/ios.yml']
+  workflow_dispatch:
+    inputs:
+      distribution:
+        description: Build type
+        type: choice
+        options: [simulator, unsigned, ad-hoc, app-store-connect]
+        default: simulator
+      runner:
+        description: macOS runner (use latest if the macos-15 pool is busy)
+        type: choice
+        options: [macos-15, macos-latest]
+        default: macos-15
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-${{ github.ref }}-${{ inputs.distribution || 'simulator' }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ${{ inputs.runner || 'macos-15' }}
+    timeout-minutes: 30
+    env:
+      IOS_BUNDLE_ID: ${{ vars.IOS_BUNDLE_ID || 'io.github.rtk19.BitChord' }}
+      APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+      IOS_BUILD_NUMBER: ${{ github.run_number }}
+      IOS_DISTRIBUTION: ${{ inputs.distribution || (github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.IOS_AUTO_DISTRIBUTION) || 'simulator' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read upstream app version
+        run: echo "IOS_VERSION=$(python3 scripts/ios/version.py)" >> "$GITHUB_ENV"
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: web/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Prepare bundled app
+        run: bash scripts/ios/prepare.sh
+      - name: Package self-contained Xcode project
+        run: bash scripts/ios/package-project.sh
+      - name: Upload ready-to-open Xcode project
+        uses: actions/upload-artifact@v4
+        with:
+          name: BitChord-XcodeProject-${{ github.run_number }}
+          path: ios/build/BitChord-XcodeProject.zip
+          if-no-files-found: error
+      - name: Typecheck and shared tests
+        working-directory: web
+        run: |
+          pnpm --filter @bitchord/app typecheck
+          pnpm --filter @bitchord/app test
+      - name: Import signing material
+        if: github.ref == 'refs/heads/main' && (env.IOS_DISTRIBUTION == 'ad-hoc' || env.IOS_DISTRIBUTION == 'app-store-connect')
+        env:
+          IOS_CERTIFICATE_P12_BASE64: ${{ secrets.IOS_CERTIFICATE_P12_BASE64 }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+        run: bash scripts/ios/install-signing.sh
+      - name: Validate signing branch
+        if: env.IOS_DISTRIBUTION == 'ad-hoc' || env.IOS_DISTRIBUTION == 'app-store-connect'
+        run: |
+          test "$GITHUB_REF" = refs/heads/main || { echo 'Signed builds run from main only.'; exit 1; }
+      - name: Build
+        env:
+          DISTRIBUTION: ${{ env.IOS_DISTRIBUTION }}
+        run: |
+          bash scripts/ios/build.sh "$DISTRIBUTION"
+          if [[ "$DISTRIBUTION" == simulator ]]; then bash scripts/ios/build.sh unsigned; fi
+      - name: Package apps with executable permissions preserved
+        run: |
+          if [[ "$IOS_DISTRIBUTION" == simulator ]]; then
+            ditto -c -k --sequesterRsrc --keepParent ios/build/simulator/Build/Products/Release-iphonesimulator/BitChord.app ios/build/BitChord-Simulator.zip
+          fi
+          if [[ "$IOS_DISTRIBUTION" == simulator || "$IOS_DISTRIBUTION" == unsigned ]]; then
+            ditto -c -k --sequesterRsrc --keepParent ios/build/BitChord.xcarchive ios/build/BitChord-unsigned.xcarchive.zip
+          fi
+      - name: Launch and navigation smoke test
+        if: env.IOS_DISTRIBUTION == 'simulator'
+        run: bash scripts/ios/smoke.sh
+      - name: Upload UI test evidence
+        if: always() && env.IOS_DISTRIBUTION == 'simulator'
+        uses: actions/upload-artifact@v4
+        with:
+          name: BitChord-iOS-UI-tests-${{ github.run_number }}
+          path: |
+            ios/build/LaunchTests.xcresult
+            ios/build/screenshots
+            ios/build/simulator.log
+            ios/build/preflight.log
+      - name: Upload simulator app
+        if: env.IOS_DISTRIBUTION == 'simulator'
+        uses: actions/upload-artifact@v4
+        with:
+          name: BitChord-iOS-Simulator-${{ github.run_number }}
+          path: ios/build/BitChord-Simulator.zip
+          if-no-files-found: error
+      - name: Upload device archive
+        if: env.IOS_DISTRIBUTION == 'unsigned' || env.IOS_DISTRIBUTION == 'simulator'
+        uses: actions/upload-artifact@v4
+        with:
+          name: BitChord-iOS-unsigned-archive-${{ github.run_number }}
+          path: ios/build/BitChord-unsigned.xcarchive.zip
+          if-no-files-found: error
+      - name: Upload signed IPA
+        if: env.IOS_DISTRIBUTION == 'ad-hoc' || env.IOS_DISTRIBUTION == 'app-store-connect'
+        uses: actions/upload-artifact@v4
+        with:
+          name: BitChord-iOS-IPA-${{ github.run_number }}
+          path: ios/build/export/*.ipa
+          if-no-files-found: error
+      - name: Clean signing material
+        if: always()
+        run: |
+          if [[ -n "$IOS_SIGNING_KEYCHAIN" ]]; then security delete-keychain "$IOS_SIGNING_KEYCHAIN" || true; fi
+          if [[ -n "$IOS_INSTALLED_PROFILE" ]]; then rm -f "$IOS_INSTALLED_PROFILE"; fi
+          if [[ -n "$IOS_SIGNING_DIR" ]]; then rm -rf "$IOS_SIGNING_DIR"; fi

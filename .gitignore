@@ -48,3 +48,15 @@ AGENTS.md
 # Built packages — release APKs/bundles are handed out, never committed
 *.apk
 *.aab
+
+# iOS generated projects, web bundle and signing material
+/ios/BitChord.xcodeproj/
+/ios/BitChord/Web/
+/ios/BitChord/Info.plist
+/ios/BitChord/Assets.xcassets/
+/ios/build/
+*.ipa
+*.xcarchive
+*.mobileprovision
+*.p12
+*.p8

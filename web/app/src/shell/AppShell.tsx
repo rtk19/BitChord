@@ -8,6 +8,7 @@ import { PrefetchLink } from '@/components/PrefetchLink';
 import { config } from '@/config';
 import { useExtension } from '@/extension/useExtension';
 import { isMobileBrowser } from '@/lib/platform';
+import { isIOSApp } from '@/native/ios';
 import { useUi } from '@/state/ui';
 import { useKeyboardShortcuts } from './useKeyboardShortcuts';
 import { Banner, bannerButtonClass } from './Banner';
@@ -41,7 +42,7 @@ export function AppShell() {
   const fullScreen = useUi((s) => s.fullScreen);
 
   let banner = null;
-  if (mobile) {
+  if (mobile && !isIOSApp()) {
     banner = (
       <Banner
         title="BitChord is better in the app."

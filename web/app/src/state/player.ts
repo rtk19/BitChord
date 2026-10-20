@@ -1,5 +1,6 @@
 import type { DetectedExtension } from '@bitchord/shared/bridge';
 import { create } from 'zustand';
+import { createIOSAudio, isIOSApp, nativeCall } from '@/native/ios';
 import type { Track } from '@/data/music/types';
 import { extensionQueryKey } from '@/extension/useExtension';
 import { artworkAtPixels } from '@/lib/artwork';
@@ -130,7 +131,7 @@ function getDecks(): Promise<Deck[]> {
     // load on the first play, not with the page (prompt §3).
     const { YouTubeEngine } = await import('@/playback/youtube/engine');
     decks = [0, 1].map((n) => {
-      const audio = new Audio();
+      const audio = isIOSApp() ? createIOSAudio() : new Audio();
       audio.preload = 'auto';
       // Media from another origin is silent inside an AudioContext unless it
       // is fetched with CORS (prompt §6, the Web Audio caveat).
@@ -751,6 +752,7 @@ function bindElement(deck: Deck, n: number) {
 let handlersBound = false;
 
 function updateMediaSession(track: NowPlaying | null) {
+  if (isIOSApp()) void nativeCall('audio.metadata', track ? { title: track.title, artist: track.artist, artwork: track.artworkUrl } : {}).catch(console.error);
   if (!('mediaSession' in navigator)) return;
   const session = navigator.mediaSession;
   if (!track) {
