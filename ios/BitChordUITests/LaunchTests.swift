@@ -1,53 +1,55 @@
 import XCTest
-import UIKit
 
 final class LaunchTests: XCTestCase {
-    func testBundledInterfaceLoadsWithoutAnExtension() {
+    private func capture(_ name: String) {
+        let screenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        screenshot.name = name; screenshot.lifetime = .keepAlways; add(screenshot)
+    }
+    func testNativeNavigationPlayerAndLibrary() {
         let app = XCUIApplication()
-        app.launchArguments = ["--ui-testing"]
+        app.launchArguments = ["--fixture", "--reset-library"]
         app.launch()
-        let menu = app.webViews.buttons["Open menu"]
-        XCTAssertTrue(menu.waitForExistence(timeout: 30), "The bundled React interface must render inside WKWebView")
-        XCTAssertTrue(menu.isHittable, app.debugDescription)
-        XCTAssertFalse(app.staticTexts["BitChord is better in the app."].exists, "Native builds must not show the Android download banner")
-        let screen = XCUIScreen.main.screenshot()
-        let screenshot = XCTAttachment(screenshot: screen)
-        screenshot.name = "BitChord-iOS-launch"
-        screenshot.lifetime = .keepAlways
-        add(screenshot)
-        XCTAssertTrue(hasPaintedContent(screen), "The app must paint visible content, not only expose accessibility elements")
-        menu.tap()
-        let search = app.webViews.links["Search"]
+        XCTAssertTrue(app.tabBars.buttons["Home"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.staticTexts["Made for your day"].waitForExistence(timeout: 15))
+        capture("Native-Home")
+        app.tabBars.buttons["Search"].tap()
+        let search = app.searchFields.firstMatch
         XCTAssertTrue(search.waitForExistence(timeout: 5))
-        XCTAssertTrue(search.isHittable)
-        search.tap()
-        XCTAssertTrue(app.webViews.searchFields.firstMatch.waitForExistence(timeout: 10) || app.webViews.textFields.firstMatch.waitForExistence(timeout: 10), "Navigation must reach the Search page")
-        let hierarchy = XCTAttachment(string: app.debugDescription)
-        hierarchy.name = "BitChord-accessibility-tree"
-        hierarchy.lifetime = .keepAlways
-        add(hierarchy)
+        search.tap(); search.typeText("Night")
+        let song = app.buttons.containing(.staticText, identifier: "Night Drive").firstMatch
+        XCTAssertTrue(song.waitForExistence(timeout: 10))
+        capture("Native-Search")
+        song.tap()
+        let mini = app.buttons["Open Now Playing"]
+        XCTAssertTrue(mini.waitForExistence(timeout: 5))
+        mini.tap()
+        XCTAssertTrue(app.navigationBars["Now Playing"].waitForExistence(timeout: 5))
+        capture("Native-NowPlaying")
+        app.buttons["Pause"].tap()
+        XCTAssertTrue(app.buttons["Play"].exists)
+        app.buttons["Favorite"].tap()
+        app.buttons["Playing Next"].tap()
+        XCTAssertTrue(app.navigationBars["Playing Next"].waitForExistence(timeout: 5))
+        capture("Native-Queue")
+        app.buttons["Done"].tap()
+        app.buttons["Next Track"].tap()
+        XCTAssertTrue(app.staticTexts["Blue Horizon"].waitForExistence(timeout: 5))
+        app.buttons["Close Now Playing"].tap()
+        app.tabBars.buttons["Library"].tap()
+        app.buttons["Favorites"].tap()
+        XCTAssertTrue(app.staticTexts["Night Drive"].waitForExistence(timeout: 5))
+        capture("Native-Favorites")
+        app.terminate(); app.launchArguments = ["--fixture"]; app.launch()
+        app.tabBars.buttons["Library"].tap(); app.buttons["Favorites"].tap()
+        XCTAssertTrue(app.staticTexts["Night Drive"].waitForExistence(timeout: 5), "Favorites must survive relaunch")
     }
 
-    private func hasPaintedContent(_ screenshot: XCUIScreenshot) -> Bool {
-        guard let image = screenshot.image.cgImage else { return false }
-        let width = image.width, height = image.height
-        var pixels = [UInt8](repeating: 255, count: width * height * 4)
-        return pixels.withUnsafeMutableBytes { buffer in
-            guard let context = CGContext(data: buffer.baseAddress, width: width, height: height,
-                                          bitsPerComponent: 8, bytesPerRow: width * 4,
-                                          space: CGColorSpaceCreateDeviceRGB(),
-                                          bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return false }
-            context.draw(image, in: CGRect(x: 0, y: 0, width: CGFloat(width), height: CGFloat(height)))
-            let bytes = buffer.bindMemory(to: UInt8.self)
-            var painted = 0
-            // Exclude the status bar and home indicator; inspect the app's area.
-            for y in stride(from: height / 10, to: height * 9 / 10, by: 4) {
-                for x in stride(from: 0, to: width, by: 4) {
-                    let index = (y * width + x) * 4
-                    if min(bytes[index], bytes[index + 1], bytes[index + 2]) < 230 { painted += 1 }
-                }
-            }
-            return painted > 100
-        }
+    func testNormalLaunchHasNativeTabs() {
+        let app = XCUIApplication(); app.launch()
+        XCTAssertTrue(app.tabBars.buttons["Home"].waitForExistence(timeout: 15))
+        app.tabBars.buttons["Search"].tap()
+        XCTAssertTrue(app.searchFields.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.webViews.firstMatch.exists, "WebKit must not expose a web UI")
+        capture("Native-Live-Launch")
     }
 }

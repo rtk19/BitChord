@@ -45,6 +45,14 @@ jobs:
         run: brew install xcodegen
       - name: Prepare bundled app
         run: bash scripts/ios/prepare.sh
+      - name: Package self-contained Xcode project
+        run: bash scripts/ios/package-project.sh
+      - name: Upload ready-to-open Xcode project
+        uses: actions/upload-artifact@v4
+        with:
+          name: BitChord-XcodeProject-${{ github.run_number }}
+          path: ios/build/BitChord-XcodeProject.zip
+          if-no-files-found: error
       - name: Typecheck and shared tests
         working-directory: web
         run: |

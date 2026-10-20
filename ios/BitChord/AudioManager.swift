@@ -10,6 +10,8 @@ final class AudioManager {
     private var metadata: [String: Any] = [:]
     private var artworkAddress: String?
     private var interrupted = false
+    var onNext: (() -> Void)?
+    var onPrevious: (() -> Void)?
 
     init(emit: @escaping ([String: Any]) -> Void) {
         self.emit = emit
@@ -31,10 +33,12 @@ final class AudioManager {
             guard let seek = event as? MPChangePlaybackPositionCommandEvent else { return .commandFailed }
             DispatchQueue.main.async { self?.active?.seek(seek.positionTime) }; return .success
         }
-        // Queue resolution still lives in the shared UI. Do not expose remote
-        // next/previous until the background queue is owned by the native host.
-        commands.nextTrackCommand.isEnabled = false
-        commands.previousTrackCommand.isEnabled = false
+        commands.nextTrackCommand.addTarget { [weak self] _ in
+            DispatchQueue.main.async { self?.onNext?() }; return .success
+        }
+        commands.previousTrackCommand.addTarget { [weak self] _ in
+            DispatchQueue.main.async { self?.onPrevious?() }; return .success
+        }
         NotificationCenter.default.addObserver(self, selector: #selector(interruption), name: AVAudioSession.interruptionNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(routeChanged), name: AVAudioSession.routeChangeNotification, object: nil)
     }
