@@ -100,6 +100,7 @@ jobs:
             ios/build/LaunchTests.xcresult
             ios/build/screenshots
             ios/build/simulator.log
+            ios/build/preflight.log
       - name: Upload simulator app
         if: env.IOS_DISTRIBUTION == 'simulator'
         uses: actions/upload-artifact@v4

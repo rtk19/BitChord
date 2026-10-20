@@ -14,8 +14,32 @@ device = sys.argv[1]
 subprocess.run(['xcrun', 'simctl', 'boot', device], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 subprocess.run(['xcrun', 'simctl', 'bootstatus', device, '-b'], check=True, timeout=240)
 PY
-xcodebuild -project ios/BitChord.xcodeproj -scheme BitChord -configuration Debug \
-  -destination "platform=iOS Simulator,id=$device" -derivedDataPath ios/build/tests \
-  -resultBundlePath ios/build/LaunchTests.xcresult -parallel-testing-enabled NO \
+args=(-project ios/BitChord.xcodeproj -scheme BitChord -configuration Debug)
+args+=(-destination "platform=iOS Simulator,id=$device" -derivedDataPath ios/build/tests)
+args+=(-parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO)
+xcodebuild "${args[@]}" build-for-testing
+# Catch missing runtime libraries immediately instead of spending minutes in
+# each XCTest launch timeout. This app is a Debug fixture launch, not playback.
+python3 - "$device" <<'PY'
+import pathlib, subprocess, sys
+device = sys.argv[1]
+app = 'ios/build/tests/Build/Products/Debug-iphonesimulator/BitChord.app'
+bundle = 'io.github.rtk19.BitChord'
+subprocess.run(['xcrun', 'simctl', 'install', device, app], check=True)
+log = pathlib.Path('ios/build/preflight.log')
+with log.open('w') as output:
+    process = subprocess.Popen(['xcrun', 'simctl', 'launch', '--console', '--terminate-running-process', device, bundle, '--fixture'], stdin=subprocess.PIPE, stdout=output, stderr=subprocess.STDOUT)
+    try:
+        process.wait(timeout=8)
+        raise RuntimeError('App exited during launch preflight: ' + log.read_text()[-6000:])
+    except subprocess.TimeoutExpired:
+        print('App survived the launch preflight.')
+    finally:
+        process.terminate()
+        try: process.wait(timeout=5)
+        except subprocess.TimeoutExpired: process.kill(); process.wait()
+        subprocess.run(['xcrun', 'simctl', 'terminate', device, bundle], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+PY
+xcodebuild "${args[@]}" -resultBundlePath ios/build/LaunchTests.xcresult \
   -test-timeouts-enabled YES -default-test-execution-time-allowance 240 \
-  -maximum-test-execution-time-allowance 240 CODE_SIGNING_ALLOWED=NO test
+  -maximum-test-execution-time-allowance 240 test-without-building
