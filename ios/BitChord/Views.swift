@@ -376,8 +376,8 @@ struct PlayerView: View {
                         Button { model.previous() } label: { Image(systemName: "backward.fill").font(.system(size: 30)) }.accessibilityLabel("Previous Track")
                         Button { model.togglePlayback() } label: {
                             Group { if model.loading { ProgressView().scaleEffect(1.4) } else { Image(systemName: model.playing ? "pause.fill" : "play.fill").font(.system(size: 48)) } }.frame(width: 70, height: 70)
-                        }.accessibilityLabel(model.playing ? "Pause" : "Play")
-                        Button { model.next() } label: { Image(systemName: "forward.fill").font(.system(size: 30)) }.accessibilityLabel("Next Track")
+                        }.accessibilityLabel(model.playing ? "Pause" : "Play").accessibilityIdentifier("player-toggle")
+                        Button { model.next() } label: { Image(systemName: "forward.fill").font(.system(size: 30)) }.accessibilityLabel("Next Track").accessibilityIdentifier("player-next")
                     }.foregroundStyle(.primary)
                     if let error = model.playbackError { ErrorView(message: error) { model.togglePlayback() } }
                     HStack {

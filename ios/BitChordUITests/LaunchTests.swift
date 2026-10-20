@@ -26,14 +26,14 @@ final class LaunchTests: XCTestCase {
         mini.tap()
         XCTAssertTrue(app.navigationBars["Now Playing"].waitForExistence(timeout: 5))
         capture("Native-NowPlaying")
-        app.buttons["Pause"].tap()
-        XCTAssertTrue(app.buttons["Play"].exists)
+        app.buttons["player-toggle"].tap()
+        XCTAssertEqual(app.buttons["player-toggle"].label, "Play")
         app.buttons["Favorite"].tap()
         app.buttons["Playing Next"].tap()
         XCTAssertTrue(app.navigationBars["Playing Next"].waitForExistence(timeout: 5))
         capture("Native-Queue")
         app.buttons["Done"].tap()
-        app.buttons["Next Track"].tap()
+        app.buttons["player-next"].tap()
         XCTAssertTrue(app.staticTexts["Blue Horizon"].waitForExistence(timeout: 5))
         app.buttons["Close Now Playing"].tap()
         app.tabBars.buttons["Library"].tap()
@@ -71,7 +71,7 @@ final class LaunchTests: XCTestCase {
         capture("Live-Search-Results")
         track.tap(); app.buttons["Open Now Playing"].tap()
         let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-            app.buttons["Pause"].exists || app.staticTexts["load-error"].exists
+            app.buttons["player-toggle"].label == "Pause" || app.staticTexts["load-error"].exists
         }, object: nil)
         XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 70), .completed)
         let error = app.staticTexts["load-error"]
@@ -79,7 +79,7 @@ final class LaunchTests: XCTestCase {
             capture("Live-YouTube-Verification-Required")
             throw XCTSkip("YouTube requested verification from the runner's network. This is not a successful playback test; device validation remains required.")
         }
-        XCTAssertTrue(app.buttons["Pause"].exists, error.exists ? error.label : "AVPlayer did not become ready")
+        XCTAssertEqual(app.buttons["player-toggle"].label, "Pause", error.exists ? error.label : "AVPlayer did not become ready")
         let elapsed = app.staticTexts["elapsed-time"]
         let advanced = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
             let parts = elapsed.label.split(separator: ":").compactMap { Int($0) }

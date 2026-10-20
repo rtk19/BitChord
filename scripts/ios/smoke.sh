@@ -8,6 +8,14 @@ evidence() {
   xcrun simctl spawn "$device" log show --last 10m --predicate 'process == "BitChord"' --style compact > ios/build/simulator.log 2>&1 || true
 }
 trap evidence EXIT
+python3 - "$device" <<'PY'
+import subprocess, sys
+device = sys.argv[1]
+subprocess.run(['xcrun', 'simctl', 'boot', device], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+subprocess.run(['xcrun', 'simctl', 'bootstatus', device, '-b'], check=True, timeout=240)
+PY
 xcodebuild -project ios/BitChord.xcodeproj -scheme BitChord -configuration Debug \
   -destination "platform=iOS Simulator,id=$device" -derivedDataPath ios/build/tests \
-  -resultBundlePath ios/build/LaunchTests.xcresult CODE_SIGNING_ALLOWED=NO test
+  -resultBundlePath ios/build/LaunchTests.xcresult -parallel-testing-enabled NO \
+  -test-timeouts-enabled YES -default-test-execution-time-allowance 240 \
+  -maximum-test-execution-time-allowance 240 CODE_SIGNING_ALLOWED=NO test
